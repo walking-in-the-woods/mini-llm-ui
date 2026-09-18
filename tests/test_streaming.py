@@ -6,6 +6,7 @@ import time
 
 from flask import Flask
 from flask.testing import FlaskClient
+
 from tests.conftest import create_chat, wait_for_first_token
 
 

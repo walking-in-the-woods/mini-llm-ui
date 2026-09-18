@@ -6,6 +6,7 @@ import re
 import time
 
 from flask.testing import FlaskClient
+
 from tests.conftest import create_chat
 
 
