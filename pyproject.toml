@@ -34,9 +34,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8,<9",
-    "pytest-cov>=5,<6",
-    "mypy>=1.10,<2",
+    "pytest>=8,<10",
+    "pytest-cov>=5,<8",
+    "mypy>=1.10,<3",
     "ruff>=0.6,<1",
     "pip-tools>=7.4,<8",
 ]
