@@ -84,6 +84,95 @@
       form.classList.toggle('busy', busy);
     }
     document.addEventListener('DOMContentLoaded', updateComposerState);
+
+    // ---------- Сворачиваемая и раздвигаемая боковая панель ----------
+    //
+    // Ширина и свёрнутое состояние хранятся в localStorage под
+    // ключами mini-llm-ui.sidebar.* и восстанавливаются при загрузке.
+    // Все изменения касаются только UI — серверная часть не знает
+    // о настройках панели.
+    (function initSidebar() {
+      const layout = document.getElementById('layout');
+      const toggle = document.getElementById('sidebar-toggle');
+      const sidebar = document.getElementById('sidebar');
+      const resizer = document.getElementById('sidebar-resizer');
+      if (!layout || !toggle || !sidebar || !resizer) return;
+
+      const MIN_WIDTH = 180;
+      const MAX_WIDTH = 600;
+      const STORAGE_WIDTH = 'mini-llm-ui.sidebar.width';
+      const STORAGE_COLLAPSED = 'mini-llm-ui.sidebar.collapsed';
+
+      function clamp(width) {
+        return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
+      }
+
+      function applyCollapsed(collapsed) {
+        layout.classList.toggle('collapsed', collapsed);
+        toggle.textContent = collapsed ? '›' : '‹';
+        toggle.title = collapsed ? 'Развернуть панель' : 'Свернуть панель';
+        try {
+          localStorage.setItem(STORAGE_COLLAPSED, collapsed ? '1' : '0');
+        } catch (_) {
+          // localStorage может быть недоступен — не критично.
+        }
+      }
+
+      // Восстановление состояния из предыдущей сессии.
+      try {
+        const savedWidth = parseInt(localStorage.getItem(STORAGE_WIDTH) || '', 10);
+        if (Number.isFinite(savedWidth)) {
+          sidebar.style.width = clamp(savedWidth) + 'px';
+        }
+        if (localStorage.getItem(STORAGE_COLLAPSED) === '1') {
+          applyCollapsed(true);
+        }
+      } catch (_) {
+        // Игнорируем любые ошибки доступа к localStorage.
+      }
+
+      toggle.addEventListener('click', () => {
+        const collapsed = layout.classList.contains('collapsed');
+        applyCollapsed(!collapsed);
+      });
+
+      // Перетаскивание правой границы.
+      resizer.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        resizer.setPointerCapture(event.pointerId);
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        const startX = event.clientX;
+        const startWidth = sidebar.getBoundingClientRect().width;
+        let lastWidth = startWidth;
+
+        function onMove(moveEvent) {
+          const delta = moveEvent.clientX - startX;
+          lastWidth = clamp(startWidth + delta);
+          sidebar.style.width = lastWidth + 'px';
+        }
+
+        function onUp() {
+          resizer.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          resizer.removeEventListener('pointermove', onMove);
+          resizer.removeEventListener('pointerup', onUp);
+          resizer.removeEventListener('pointercancel', onUp);
+          try {
+            localStorage.setItem(STORAGE_WIDTH, String(Math.round(lastWidth)));
+          } catch (_) {
+            // Игнорируем.
+          }
+        }
+
+        resizer.addEventListener('pointermove', onMove);
+        resizer.addEventListener('pointerup', onUp);
+        resizer.addEventListener('pointercancel', onUp);
+      });
+    })();
   </script>
 </body>
 </html>

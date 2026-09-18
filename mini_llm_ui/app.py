@@ -215,9 +215,17 @@ def _write_secret_file(secret_path: Path, secret: str) -> None:
 # ---------- Точка входа dev-сервера ---------------------------------------
 
 
-def _run_dev_server() -> None:
-    """Запускает Flask dev-сервер на loopback. Только для локального использования."""
+def run_dev_server() -> None:
+    """Собирает приложение и запускает Flask dev-сервер на loopback.
+
+    Печатает адрес, по которому открывать UI, один раз при старте.
+    Только для локального использования; для продакшена — wsgi.py.
+    """
     application = create_app()
+    print(
+        f'→ Откройте http://{constants.LISTEN_HOST}:{constants.LISTEN_PORT} в браузере',
+        flush=True,
+    )
     application.run(
         host=constants.LISTEN_HOST,
         port=constants.LISTEN_PORT,
@@ -227,4 +235,4 @@ def _run_dev_server() -> None:
 
 
 if __name__ == '__main__':
-    _run_dev_server()
+    run_dev_server()

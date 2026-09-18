@@ -1,8 +1,14 @@
 {% extends "base.html" %}
 {% block body %}
-<div class="layout">
+<div class="layout" id="layout">
 
-  <aside class="sidebar">
+  <button type="button"
+          class="sidebar-toggle"
+          id="sidebar-toggle"
+          title="Свернуть панель"
+          aria-label="Свернуть или развернуть панель чатов">‹</button>
+
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <h1>mini-llm-ui</h1>
       <form method="post" action="{{ url_for('chat.new_chat') }}">
@@ -27,6 +33,9 @@
       <small>Модель: <code>{{ model }}</code></small>
     </div>
   </aside>
+
+  <div class="sidebar-resizer" id="sidebar-resizer"
+       title="Потяните, чтобы изменить ширину"></div>
 
   <main class="main">
     {% if active_chat %}
