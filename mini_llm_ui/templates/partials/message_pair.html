@@ -1,0 +1,7 @@
+{% with msg = user_msg %}
+  {% include "partials/message.html" %}
+{% endwith %}
+
+{% with msg_id=assistant_msg_id, content='', stopping=False, completed=False %}
+  {% include "partials/message_polling.html" %}
+{% endwith %}

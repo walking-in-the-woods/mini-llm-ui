@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+
+  build-and-release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Install into a clean venv (smoke)
+        run: |
+          python -m venv /tmp/rel-venv
+          /tmp/rel-venv/bin/pip install --upgrade pip
+          /tmp/rel-venv/bin/pip install dist/*.whl
+          /tmp/rel-venv/bin/python -c "
+          import mini_llm_ui
+          assert mini_llm_ui.__version__
+          assert callable(mini_llm_ui.create_app)
+          print('smoke ok:', mini_llm_ui.__version__)
+          "
+
+      - name: Extract changelog entry for this tag
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          # Достаём блок из CHANGELOG.md между заголовком версии и следующим.
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$VERSION" '
+              $0 ~ "^## \\[" ver "\\]" { capture=1; next }
+              /^## \[/ { if (capture) exit }
+              capture { print }
+            ' CHANGELOG.md > /tmp/release-notes.md
+          fi
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "Release ${TAG}" > /tmp/release-notes.md
+            echo "" >> /tmp/release-notes.md
+            echo "Автоматический релиз без описания." >> /tmp/release-notes.md
+          fi
+          echo "notes-file=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: ${{ steps.changelog.outputs.notes-file }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

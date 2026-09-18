@@ -1,0 +1,14 @@
+<div class="message message-{{ msg['role'] }} editing" id="message-{{ msg['id'] }}">
+  <form hx-post="{{ url_for('chat.save_message', chat_id=msg['chat_id'], message_id=msg['id']) }}"
+        hx-target="#message-{{ msg['id'] }}"
+        hx-swap="outerHTML">
+    <textarea name="content" rows="8">{{ msg['content'] }}</textarea>
+    <div class="edit-actions">
+      <button type="submit">Сохранить</button>
+      <button type="button" class="btn-secondary"
+              hx-get="{{ url_for('chat.view_message', chat_id=msg['chat_id'], message_id=msg['id']) }}"
+              hx-target="#message-{{ msg['id'] }}"
+              hx-swap="outerHTML">Отмена</button>
+    </div>
+  </form>
+</div>

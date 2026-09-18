@@ -1,0 +1,31 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# --- Тулчейн ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Данные приложения ---
+data/
+uploads/
+
+# --- Вендоренные ассеты (генерируются scripts/fetch_assets.sh) ---
+mini_llm_ui/static/htmx.min.js
+
+# --- Локальное окружение ---
+.env
+
+# --- OS / IDE ---
+.DS_Store
+.idea/
+.vscode/

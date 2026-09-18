@@ -1,0 +1,53 @@
+version: 2
+updates:
+  # Python-зависимости из pyproject.toml
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: 'deps'
+      include: scope
+    groups:
+      # Flask + сопутствующие — одним PR
+      flask-stack:
+        patterns:
+          - 'Flask*'
+          - 'Werkzeug*'
+          - 'Jinja2*'
+          - 'itsdangerous*'
+          - 'click*'
+          - 'blinker*'
+          - 'MarkupSafe*'
+      # Test/dev-tools — одним PR
+      dev-tools:
+        patterns:
+          - 'pytest*'
+          - 'coverage*'
+          - 'mypy*'
+          - 'ruff*'
+          - 'typing*'
+
+  # GitHub Actions в workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: 'ci'
+      include: scope

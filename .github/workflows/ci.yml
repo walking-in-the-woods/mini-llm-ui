@@ -1,0 +1,197 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  OLLAMA_MODEL: dummy
+  OLLAMA_HOST: http://127.0.0.1:1
+  SECRET_KEY: ci-test-secret-key-not-for-production
+
+jobs:
+
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Install dependencies from lock file
+        run: |
+          pip install -r requirements.lock
+          pip install -e . --no-deps
+
+      - name: ruff check
+        run: ruff check mini_llm_ui tests --output-format=github
+
+      - name: ruff format --check
+        run: ruff format --check mini_llm_ui tests
+
+  typecheck:
+    name: Typecheck (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Install dependencies from lock file
+        run: |
+          pip install -r requirements.lock
+          pip install -e . --no-deps
+
+      - name: mypy strict
+        run: mypy --no-incremental mini_llm_ui tests
+
+  test:
+    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    needs: [lint, typecheck]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ['3.10', '3.11', '3.12']
+        include:
+          - os: macos-latest
+            python-version: '3.12'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Install dependencies from lock file
+        run: |
+          pip install -r requirements.lock
+          pip install -e . --no-deps
+
+      - name: Show environment
+        run: |
+          python --version
+          pip --version
+          pip show Flask mistune ollama | grep -E '^(Name|Version)'
+
+      - name: pytest with coverage
+        run: pytest -q --cov --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage report as artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 7
+
+  build:
+    name: Build (wheel + sdist)
+    needs: [lint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: List built artifacts
+        run: ls -la dist/
+
+      - name: Install built wheel into a clean venv
+        run: |
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install --upgrade pip
+          /tmp/smoke-venv/bin/pip install dist/*.whl
+
+      - name: Smoke import
+        run: |
+          /tmp/smoke-venv/bin/python -c "
+          import mini_llm_ui
+          print('version:', mini_llm_ui.__version__)
+          assert callable(mini_llm_ui.create_app)
+          print('create_app is callable')
+          "
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies from lock file
+        run: |
+          pip install -r requirements.lock
+          pip install -e . --no-deps
+
+      - name: Install security tools
+        run: pip install pip-audit 'bandit[toml]'
+
+      - name: pip-audit (dependencies)
+        run: pip-audit --strict
+
+      - name: bandit (static analysis)
+        run: bandit -r mini_llm_ui -ll
+
+  ci-success:
+    name: CI success
+    needs: [lint, typecheck, test, build, security]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          echo "lint:      ${{ needs.lint.result }}"
+          echo "typecheck: ${{ needs.typecheck.result }}"
+          echo "test:      ${{ needs.test.result }}"
+          echo "build:     ${{ needs.build.result }}"
+          echo "security:  ${{ needs.security.result }}"
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.typecheck.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.build.result }}" != "success" ] || \
+             [ "${{ needs.security.result }}" != "success" ]; then
+            echo "One or more jobs did not succeed."
+            exit 1
+          fi
+          echo "All checks passed."

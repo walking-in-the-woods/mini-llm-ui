@@ -1,0 +1,8 @@
+<span class="attachment-chip" id="attachment-{{ attachment['id'] }}">
+  📎 {{ attachment['filename'] }}
+  <button type="button" class="chip-remove"
+          hx-post="{{ url_for('file.delete_attachment_route', chat_id=chat_id, attachment_id=attachment['id']) }}"
+          hx-target="#attachment-{{ attachment['id'] }}"
+          hx-swap="outerHTML"
+          title="Удалить">×</button>
+</span>

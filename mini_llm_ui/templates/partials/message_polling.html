@@ -1,0 +1,22 @@
+<div class="message message-assistant message-polling" id="message-{{ msg_id }}"
+     hx-get="{{ url_for('chat.poll_message', chat_id=chat_id, message_id=msg_id) }}"
+     hx-sync="this:replace"
+     hx-trigger="every 700ms"
+     hx-swap="outerHTML">
+  <div class="message-header">
+    <span class="role">Ассистент</span>
+    <span class="time">
+      {% if stopping %}останавливается…
+      {% elif completed %}синхронизация…
+      {% else %}<span class="dot-pulse"></span> генерирует…
+      {% endif %}
+    </span>
+    {% if not stopping and not completed %}
+      <button type="button" class="icon-btn stop-btn" title="Остановить"
+              hx-post="{{ url_for('chat.stop_generation', chat_id=chat_id, message_id=msg_id) }}"
+              hx-target="#message-{{ msg_id }}"
+              hx-swap="outerHTML">■</button>
+    {% endif %}
+  </div>
+  <pre class="streaming-text">{{ content }}</pre>
+</div>

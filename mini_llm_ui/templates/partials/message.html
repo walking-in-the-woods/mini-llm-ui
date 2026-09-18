@@ -1,0 +1,21 @@
+<div class="message message-{{ msg['role'] }}" id="message-{{ msg['id'] }}">
+  <div class="message-header">
+    <span class="role">
+      {% if msg['role'] == 'user' %}Вы
+      {% elif msg['role'] == 'system' %}Система
+      {% else %}Ассистент{% endif %}
+    </span>
+    <span class="time">{{ msg['created_at'][11:16] }}</span>
+  </div>
+
+  <div class="markdown-body">{{ msg['html_content']|safe }}</div>
+
+  <div class="message-actions">
+    <button type="button" class="icon-btn" title="Редактировать"
+            hx-get="{{ url_for('chat.edit_message', chat_id=msg['chat_id'], message_id=msg['id']) }}"
+            hx-target="#message-{{ msg['id'] }}"
+            hx-swap="outerHTML">✏️</button>
+    <a class="icon-btn" title="Скачать .md"
+       href="{{ url_for('export.export_message', chat_id=msg['chat_id'], message_id=msg['id']) }}">📥</a>
+  </div>
+</div>

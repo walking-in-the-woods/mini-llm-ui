@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>mini-llm-ui</h1>
+      <form method="post" action="{{ url_for('chat.new_chat') }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-secondary full-width">+ Новый чат</button>
+      </form>
+    </div>
+
+    <nav class="chat-list">
+      {% for chat in chats %}
+        <a href="{{ url_for('chat.view_chat', chat_id=chat['id']) }}"
+           class="chat-item{% if active_chat and chat['id'] == active_chat['id'] %} active{% endif %}">
+          <span class="chat-title">{{ chat['title'] }}</span>
+          <span class="chat-date">{{ chat['updated_at'][:16] }}</span>
+        </a>
+      {% else %}
+        <p class="muted">Нет чатов</p>
+      {% endfor %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <small>Модель: <code>{{ model }}</code></small>
+    </div>
+  </aside>
+
+  <main class="main">
+    {% if active_chat %}
+      {% set chat_id = active_chat['id'] %}
+      <div class="chat-view">
+
+        <header class="chat-header">
+          <h2>{{ active_chat['title'] }}</h2>
+          <form method="post"
+                action="{{ url_for('chat.delete_chat', chat_id=chat_id) }}"
+                onsubmit="return confirm('Удалить чат и все сообщения?');">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-secondary">Удалить</button>
+          </form>
+        </header>
+
+        <div class="messages" id="messages">
+          {% for msg in messages %}
+            {% if msg['id'] in active_streams %}
+              {% set stream = active_streams[msg['id']] %}
+              {% with chat_id=chat_id, msg_id=msg['id'], content=stream.content,
+                      stopping=stream.stopping, completed=stream.completed %}
+                {% include "partials/message_polling.html" %}
+              {% endwith %}
+            {% else %}
+              {% include "partials/message.html" %}
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        <form class="composer"
+              hx-post="{{ url_for('chat.send_message', chat_id=chat_id) }}"
+              hx-target="#messages"
+              hx-swap="beforeend"
+              hx-on::after-request="if(event.detail.xhr&&event.detail.xhr.status>=200&&event.detail.xhr.status<400){const t=this.querySelector('textarea');t.value='';t.focus();const e=document.getElementById('chat-error');if(e)e.innerHTML='';}">
+
+          <div class="attachments-bar" id="attachments-bar">
+            {% for attachment in attachments %}
+              {% include "partials/attachment_chip.html" %}
+            {% endfor %}
+          </div>
+          <div class="upload-error" id="upload-error"></div>
+          <div class="chat-error" id="chat-error"></div>
+
+          <textarea name="content"
+                    rows="3"
+                    placeholder="Сообщение… (Ctrl+Enter — отправить)"></textarea>
+
+          <div class="composer-actions">
+            <label class="file-upload">
+              <span>📎 Прикрепить .md/.txt</span>
+              <input type="file" name="file" accept=".md,.txt"
+                     hx-post="{{ url_for('file.upload', chat_id=chat_id) }}"
+                     hx-target="#attachments-bar"
+                     hx-swap="beforeend"
+                     hx-encoding="multipart/form-data"
+                     hx-trigger="change"
+                     hx-on::after-request="this.value=''; if(event.detail.xhr&&event.detail.xhr.status>=200&&event.detail.xhr.status<400){const e=document.getElementById('upload-error'); if(e) e.innerHTML='';}">
+            </label>
+            <button type="submit">Отправить</button>
+          </div>
+        </form>
+
+      </div>
+    {% else %}
+      <div class="welcome">
+        <h2>Добро пожаловать</h2>
+        <p>Создайте новый чат, чтобы начать работу с локальной моделью Ollama.</p>
+      </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

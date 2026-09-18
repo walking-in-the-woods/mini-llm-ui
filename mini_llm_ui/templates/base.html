@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}mini-llm-ui{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='htmx.min.js') }}" defer></script>
+</head>
+<body>
+  {% block body %}{% endblock %}
+
+  <script>
+    // CSRF: добавляем заголовок ко всем HTMX-запросам.
+    document.body.addEventListener('htmx:configRequest', (evt) => {
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta) evt.detail.headers['X-CSRFToken'] = meta.content;
+    });
+
+    // Ctrl+Enter — отправка формы.
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'TEXTAREA' && e.ctrlKey && e.key === 'Enter') {
+        const form = e.target.closest('form');
+        if (form && !form.querySelector('button[type="submit"]')?.disabled) {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      }
+    });
+
+    // Единый beforeSwap:
+    //  1) для ожидаемых 4xx (400/409) с HX-Retarget — включаем swap;
+    //     isError=false отключает htmx:responseError, но НЕ означает
+    //     «успех» для нашего кода: клиентские обработчики проверяют
+    //     xhr.status явно, а не event.detail.successful;
+    //  2) фиксируем позицию скролла ДО swap для «умного автоскролла».
+    document.body.addEventListener('htmx:beforeSwap', (evt) => {
+      const status = evt.detail.xhr && evt.detail.xhr.status;
+      if (status === 400 || status === 409) {
+        evt.detail.shouldSwap = true;
+        evt.detail.isError = false;
+      }
+
+      const box = document.getElementById('messages');
+      if (!box) return;
+      const near = box.scrollHeight - box.scrollTop - box.clientHeight < 200;
+      box.dataset.autoscroll = near ? '1' : '0';
+    });
+
+    document.body.addEventListener('htmx:afterSwap', (e) => {
+      const box = document.getElementById('messages');
+      if (box) {
+        const target = e.detail && e.detail.elt;
+        const inside = target && (box === target || box.contains(target));
+        if (inside && box.dataset.autoscroll === '1') {
+          box.scrollTop = box.scrollHeight;
+        }
+      }
+      updateComposerState();
+    });
+
+    // Непредвиденные ошибки: 5xx, а также 400 от CSRF/Host — у них нет
+    // HX-Retarget, и мы их сюда направляем.
+    document.body.addEventListener('htmx:responseError', (evt) => {
+      const xhr = evt.detail.xhr;
+      const box = document.getElementById('chat-error');
+      if (box) {
+        box.innerHTML =
+          `<span class="error">Ошибка запроса (${xhr.status}): ` +
+          `${xhr.statusText || 'см. логи'}</span>`;
+      }
+    });
+
+    // Отключаем composer, пока есть активный стрим.
+    function updateComposerState() {
+      const form = document.querySelector('.composer');
+      if (!form) return;
+      const busy = document.querySelector('.message-polling') !== null;
+      const btn = form.querySelector('button[type="submit"]');
+      const ta = form.querySelector('textarea[name="content"]');
+      if (btn) btn.disabled = busy;
+      if (ta) ta.disabled = busy;
+      form.classList.toggle('busy', busy);
+    }
+    document.addEventListener('DOMContentLoaded', updateComposerState);
+  </script>
+</body>
+</html>
