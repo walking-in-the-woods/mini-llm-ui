@@ -160,9 +160,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies from lock file
-        run: |
-          pip install -r requirements.lock
-          pip install -e . --no-deps
+        run: pip install -r requirements.lock
 
       - name: Install security tools
         run: pip install pip-audit 'bandit[toml]'
