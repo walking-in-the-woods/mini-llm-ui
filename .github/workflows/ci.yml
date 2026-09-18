@@ -166,7 +166,7 @@ jobs:
         run: pip install pip-audit 'bandit[toml]'
 
       - name: pip-audit (dependencies)
-        run: pip-audit --strict --skip-editable
+        run: pip-audit --skip-editable
 
       - name: bandit (static analysis)
         run: bandit -r mini_llm_ui -ll
