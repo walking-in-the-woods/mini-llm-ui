@@ -4,6 +4,11 @@
   - не создавать клиент на каждый запрос (keep-alive соединения);
   - позволить тестам подсунуть fake-реализацию без monkeypatch;
   - явно держать host в одном месте.
+
+Стриминг отдаёт не только текст, но и признак завершения — поле
+done из финального чанка ответа Ollama. Это позволяет StreamManager
+не ждать закрытия HTTP-соединения, а завершать генерацию сразу,
+как только модель закончила.
 """
 
 from __future__ import annotations
@@ -25,15 +30,19 @@ _ATTACHMENT_SYSTEM_PREFIX: Final[str] = 'Прикреплённые файлы:\
 class SupportsStreamChat(Protocol):
     """Протокол для подмены OllamaService в тестах.
 
-    stream_chat возвращает именно Generator, а не Iterator: контракт
-    использует .close() для мягкой отмены, а у Iterator его нет.
+    stream_chat возвращает Generator пар (content, done):
+      - content: str — текстовый фрагмент ответа модели (может быть '');
+      - done: bool — True в финальном чанке, когда генерация завершена.
+
+    Контракт использует .close() для мягкой отмены, а у Iterator его
+    нет — поэтому именно Generator.
     """
 
     def stream_chat(
         self,
         model: str,
         messages: list[dict[str, str]],
-    ) -> Generator[str, None, None]: ...
+    ) -> Generator[tuple[str, bool], None, None]: ...
 
 
 class OllamaService:
@@ -52,8 +61,12 @@ class OllamaService:
         self,
         model: str,
         messages: list[dict[str, str]],
-    ) -> Generator[str, None, None]:
-        """Генератор текстовых чанков ответа модели.
+    ) -> Generator[tuple[str, bool], None, None]:
+        """Генератор пар (content, done) от ответа модели.
+
+        Ollama стримит NDJSON: каждый чанк — отдельный JSON-объект,
+        в финальном поле done=True. Мы прокидываем этот флаг наверх,
+        чтобы StreamManager мог закрыть стрим немедленно.
 
         Возвращаемый объект поддерживает .close() — это контракт,
         на который опирается StreamManager для мягкой отмены.
@@ -65,8 +78,8 @@ class OllamaService:
         )
         for chunk in response:
             content = _extract_chunk_content(chunk)
-            if content:
-                yield content
+            done = _extract_chunk_done(chunk)
+            yield content, done
 
 
 def build_prompt_messages(
@@ -141,3 +154,14 @@ def _extract_chunk_content(chunk: Any) -> str:
     if isinstance(message_attr, dict):
         return str(message_attr.get('content', ''))
     return str(getattr(message_attr, 'content', '') or '')
+
+
+def _extract_chunk_done(chunk: Any) -> bool:
+    """Универсально достаёт флаг done из ответа ollama-python.
+
+    Ollama присылает поле done=True в финальном чанке стрима.
+    До появления этого флага генерация продолжается.
+    """
+    if isinstance(chunk, dict):
+        return bool(chunk.get('done', False))
+    return bool(getattr(chunk, 'done', False))

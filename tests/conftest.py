@@ -40,8 +40,13 @@ class FakeOllamaService:
       - tokens: последовательность чанков;
       - delay_seconds: пауза перед каждым чанком.
 
-    Реализует протокол SupportsStreamChat — единственный метод
-    stream_chat. Возвращаемый генератор поддерживает close().
+    stream_chat возвращает Generator пар (content, done):
+      - в финальном чанке done=True — именно это завершает стрим
+        в StreamManager, не дожидаясь закрытия HTTP-соединения;
+      - во всех промежуточных чанках done=False.
+
+    Возвращаемый генератор поддерживает close() — как того требует
+    протокол SupportsStreamChat.
     """
 
     def __init__(
@@ -57,12 +62,14 @@ class FakeOllamaService:
         self,
         model: str,
         messages: list[dict[str, str]],
-    ) -> Generator[str, None, None]:
+    ) -> Generator[tuple[str, bool], None, None]:
         self.received_calls.append((model, messages))
-        for token in self.tokens:
+        last_index = len(self.tokens) - 1
+        for index, token in enumerate(self.tokens):
             if self.delay_seconds:
                 time.sleep(self.delay_seconds)
-            yield token
+            # done=True только в финальном чанке — как у Ollama.
+            yield token, index == last_index
 
 
 @pytest.fixture

@@ -31,9 +31,6 @@
 
     // Единый beforeSwap:
     //  1) для ожидаемых 4xx (400/409) с HX-Retarget — включаем swap;
-    //     isError=false отключает htmx:responseError, но НЕ означает
-    //     «успех» для нашего кода: клиентские обработчики проверяют
-    //     xhr.status явно, а не event.detail.successful;
     //  2) фиксируем позицию скролла ДО swap для «умного автоскролла».
     document.body.addEventListener('htmx:beforeSwap', (evt) => {
       const status = evt.detail.xhr && evt.detail.xhr.status;
@@ -57,11 +54,9 @@
           box.scrollTop = box.scrollHeight;
         }
       }
-      updateComposerState();
     });
 
-    // Непредвиденные ошибки: 5xx, а также 400 от CSRF/Host — у них нет
-    // HX-Retarget, и мы их сюда направляем.
+    // Непредвиденные ошибки: 5xx, а также 400 от CSRF/Host.
     document.body.addEventListener('htmx:responseError', (evt) => {
       const xhr = evt.detail.xhr;
       const box = document.getElementById('chat-error');
@@ -72,25 +67,61 @@
       }
     });
 
-    // Отключаем composer, пока есть активный стрим.
+    // ---------- Разблокировка composer'а после стрима ----------
+    //
+    // Раз в 500 мс проверяем наличие .message-polling в DOM.
+    // Пока он есть — стрим идёт, composer заблокирован.
+    // Как только исчез — стрим завершён, composer разблокируется.
+    //
+    // setInterval запускается СРАЗУ, а не через DOMContentLoaded:
+    // скрипт в конце <body>, все элементы уже в DOM. Опора на
+    // DOMContentLoaded здесь избыточна и на практике приводила
+    // к тому, что интервал не запускался, и composer оставался
+    // заблокированным до F5.
+    //
+    // Когда busy переходит из true в false, возвращаем фокус в
+    // textarea и подсвечиваем поле — чтобы пользователь видел,
+    // что можно печатать, без ручного клика.
+    let previousBusy = null;
+
     function updateComposerState() {
       const form = document.querySelector('.composer');
       if (!form) return;
       const busy = document.querySelector('.message-polling') !== null;
       const btn = form.querySelector('button[type="submit"]');
       const ta = form.querySelector('textarea[name="content"]');
-      if (btn) btn.disabled = busy;
-      if (ta) ta.disabled = busy;
+
+      if (btn && btn.disabled !== busy) btn.disabled = busy;
+      if (ta && ta.disabled !== busy) ta.disabled = busy;
       form.classList.toggle('busy', busy);
+
+      // Стрим только что завершился: busy сменился с true на false.
+      // Возвращаем фокус в поле и коротко подсвечиваем его.
+      if (previousBusy === true && busy === false && ta) {
+        // Не крадём фокус, если вкладка в фоне или пользователь
+        // явно переключился на другой input/textarea в документе.
+        const active = document.activeElement;
+        const userIsTypingElsewhere =
+          active && active !== document.body &&
+          (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+          active !== ta;
+
+        if (document.hasFocus() && !userIsTypingElsewhere) {
+          ta.focus();
+          ta.classList.add('just-enabled');
+          setTimeout(() => ta.classList.remove('just-enabled'), 900);
+        }
+      }
+
+      previousBusy = busy;
     }
-    document.addEventListener('DOMContentLoaded', updateComposerState);
+
+    // Первый вызов — сразу, если composer и polling в текущем DOM.
+    updateComposerState();
+    // Регулярная проверка каждые 500 мс.
+    setInterval(updateComposerState, 500);
 
     // ---------- Сворачиваемая и раздвигаемая боковая панель ----------
-    //
-    // Ширина и свёрнутое состояние хранятся в localStorage под
-    // ключами mini-llm-ui.sidebar.* и восстанавливаются при загрузке.
-    // Все изменения касаются только UI — серверная часть не знает
-    // о настройках панели.
     (function initSidebar() {
       const layout = document.getElementById('layout');
       const toggle = document.getElementById('sidebar-toggle');
@@ -167,10 +198,6 @@
     })();
 
     // ---------- Изменение высоты поля ввода ----------
-    //
-    // Верхняя граница нижней панели (composer) — это полоса-разделитель.
-    // Тянем за неё → меняется высота composer. Textarea растягивается
-    // вместе с ним (flex: 1 в CSS). Высота сохраняется в localStorage.
     (function initComposerResizer() {
       const composer = document.querySelector('.composer');
       const resizer = document.getElementById('composer-resizer');
@@ -207,7 +234,6 @@
         let lastHeight = startHeight;
 
         function onMove(moveEvent) {
-          // Тянем вверх → курсор выше старта → высота растёт.
           const delta = startY - moveEvent.clientY;
           lastHeight = clamp(startHeight + delta);
           composer.style.height = lastHeight + 'px';
@@ -230,8 +256,6 @@
         resizer.addEventListener('pointercancel', onUp);
       });
 
-      // При изменении размеров окна — не даём composer вылезти за
-      // пересчитанный максимум.
       window.addEventListener('resize', () => {
         const currentHeight = composer.getBoundingClientRect().height;
         const max = maxHeight();
@@ -242,10 +266,6 @@
     })();
 
     // ---------- Язык проверки правописания ----------
-    //
-    // Значение select'а подставляется в атрибут lang textarea.
-    // Браузер сам подчёркивает опечатки (spellcheck="true" в HTML).
-    // Значение сохраняется в localStorage.
     (function initSpellcheckLanguage() {
       const select = document.getElementById('spellcheck-lang');
       const textarea = document.querySelector(

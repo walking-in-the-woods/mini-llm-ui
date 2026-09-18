@@ -1,6 +1,5 @@
 <div class="message message-assistant message-polling" id="message-{{ msg_id }}"
      hx-get="{{ url_for('chat.poll_message', chat_id=chat_id, message_id=msg_id) }}"
-     hx-sync="this:replace"
      hx-trigger="every 700ms"
      hx-swap="outerHTML">
   <div class="message-header">

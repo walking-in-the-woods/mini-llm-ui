@@ -3,18 +3,20 @@
 StreamManager — stateful-компонент. Один инстанс на процесс,
 создаётся в create_app и живёт в app.extensions['stream_manager'].
 
-Это осознанное архитектурное решение:
-  - нет глобального mutable state — тесты создают свой инстанс
-    автоматически, изоляция не требует monkeypatch;
-  - зависимости (AppConfig, OllamaService) передаются явно;
-  - в одном процессе можно в теории держать несколько менеджеров
-    (для тестов, для будущего многопользовательского режима).
-
 Конкурентная модель:
   - все операции чтения/записи self._streams идут под self._lock;
   - длинные операции (Ollama, БД, файловая система) — вне lock;
   - per-message cancel_event для мягкой остановки;
   - резервация слота — атомарная (try_reserve), не check-then-act.
+
+Завершение стрима:
+  - основной сигнал — флаг done=True в финальном чанке Ollama.
+    Как только он получен, _worker выходит из цикла и вызывает
+    _finalize_state. Не ждём EOF/close от httpx — на медленных
+    соединениях это могло занимать секунды, и всё это время UI
+    оставался заблокированным.
+  - мягкая отмена (cancel_event) — тоже выходит из цикла и
+    завершает стрим с маркером.
 """
 
 from __future__ import annotations
@@ -214,13 +216,23 @@ class StreamManager:
         model: str,
         prompt_messages: list[dict[str, str]],
     ) -> None:
-        """Фоновый поток: читает поток Ollama и финализирует сообщение."""
+        """Фоновый поток: читает поток Ollama и финализирует сообщение.
+
+        Цикл завершается при наступлении любого из трёх событий:
+          1. Ollama прислала финальный чанк с done=True — нормальный
+             конец генерации. Именно этот случай — основной, и он
+             позволяет не ждать закрытия HTTP-соединения, чтобы
+             не держать UI в заблокированном состоянии лишние секунды.
+          2. Пользователь нажал «стоп» — cancel_event взведён.
+          3. Слот исчез из self._streams (теоретически возможно,
+             если менеджер заменён или очищен).
+        """
         error: str | None = None
         cancelled = False
         generator = self._ollama.stream_chat(model, prompt_messages)
 
         try:
-            for chunk in generator:
+            for content, done in generator:
                 with self._lock:
                     state = self._streams.get(message_id)
                     if state is None:
@@ -229,7 +241,14 @@ class StreamManager:
                     if state.cancel_event.is_set():
                         cancelled = True
                         break
-                    state.chunks.append(chunk)
+                    if content:
+                        state.chunks.append(content)
+                    if done:
+                        # Ollama закончила генерацию. Выходим сразу,
+                        # не ожидая EOF от httpx. Это разблокирует
+                        # composer у пользователя на следующем же
+                        # poll-тике.
+                        break
         except Exception as stream_error:
             error = str(stream_error)
             _LOG.exception('Ollama stream failed (message_id=%s)', message_id)

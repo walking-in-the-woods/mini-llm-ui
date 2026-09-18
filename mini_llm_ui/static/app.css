@@ -333,6 +333,7 @@ button:hover:not(:disabled) { filter: brightness(.95); }
   min-height: 140px;
   max-height: 70vh;
   overflow: hidden;
+  transition: opacity .15s;
 }
 .composer.busy { opacity: .75; }
 
@@ -380,8 +381,19 @@ button:hover:not(:disabled) { filter: brightness(.95); }
   line-height: 1.5;
   resize: none;
   overflow-y: auto;
+  transition: box-shadow .15s;
 }
 .composer textarea:disabled { background: #f3f4f6; }
+
+/* Короткая подсветка поля ввода, когда оно становится доступным
+   после завершения стрима. Служит визуальным сигналом «можно печатать». */
+.composer textarea.just-enabled {
+  animation: composer-glow .9s ease-out;
+}
+@keyframes composer-glow {
+  0%   { box-shadow: 0 0 0 3px rgba(59, 130, 246, .45); }
+  100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0); }
+}
 
 .composer-actions {
   display: flex;
@@ -394,6 +406,29 @@ button:hover:not(:disabled) { filter: brightness(.95); }
   display: flex;
   align-items: center;
   gap: .5rem;
+}
+.composer-actions-right {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+/* Спиннер в композере. Виден, пока composer.busy — то есть
+   пока идёт стрим и поле ввода заблокировано. Сигнализирует,
+   что интерфейс жив и работает в фоне. */
+.composer-spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: composer-spin .8s linear infinite;
+}
+.composer.busy .composer-spinner { display: inline-block; }
+
+@keyframes composer-spin {
+  to { transform: rotate(360deg); }
 }
 
 .file-upload {
