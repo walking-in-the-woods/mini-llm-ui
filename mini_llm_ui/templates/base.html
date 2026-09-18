@@ -113,12 +113,9 @@
         toggle.title = collapsed ? 'Развернуть панель' : 'Свернуть панель';
         try {
           localStorage.setItem(STORAGE_COLLAPSED, collapsed ? '1' : '0');
-        } catch (_) {
-          // localStorage может быть недоступен — не критично.
-        }
+        } catch (_) {}
       }
 
-      // Восстановление состояния из предыдущей сессии.
       try {
         const savedWidth = parseInt(localStorage.getItem(STORAGE_WIDTH) || '', 10);
         if (Number.isFinite(savedWidth)) {
@@ -127,16 +124,13 @@
         if (localStorage.getItem(STORAGE_COLLAPSED) === '1') {
           applyCollapsed(true);
         }
-      } catch (_) {
-        // Игнорируем любые ошибки доступа к localStorage.
-      }
+      } catch (_) {}
 
       toggle.addEventListener('click', () => {
         const collapsed = layout.classList.contains('collapsed');
         applyCollapsed(!collapsed);
       });
 
-      // Перетаскивание правой границы.
       resizer.addEventListener('pointerdown', (event) => {
         event.preventDefault();
         resizer.setPointerCapture(event.pointerId);
@@ -163,14 +157,125 @@
           resizer.removeEventListener('pointercancel', onUp);
           try {
             localStorage.setItem(STORAGE_WIDTH, String(Math.round(lastWidth)));
-          } catch (_) {
-            // Игнорируем.
-          }
+          } catch (_) {}
         }
 
         resizer.addEventListener('pointermove', onMove);
         resizer.addEventListener('pointerup', onUp);
         resizer.addEventListener('pointercancel', onUp);
+      });
+    })();
+
+    // ---------- Изменение высоты поля ввода ----------
+    //
+    // Верхняя граница нижней панели (composer) — это полоса-разделитель.
+    // Тянем за неё → меняется высота composer. Textarea растягивается
+    // вместе с ним (flex: 1 в CSS). Высота сохраняется в localStorage.
+    (function initComposerResizer() {
+      const composer = document.querySelector('.composer');
+      const resizer = document.getElementById('composer-resizer');
+      if (!composer || !resizer) return;
+
+      const MIN_HEIGHT = 140;
+      const MAX_HEIGHT_FRACTION = 0.7;
+      const STORAGE_KEY = 'mini-llm-ui.composer.height';
+
+      function maxHeight() {
+        return Math.round(window.innerHeight * MAX_HEIGHT_FRACTION);
+      }
+
+      function clamp(height) {
+        return Math.max(MIN_HEIGHT, Math.min(maxHeight(), height));
+      }
+
+      try {
+        const saved = parseInt(localStorage.getItem(STORAGE_KEY) || '', 10);
+        if (Number.isFinite(saved)) {
+          composer.style.height = clamp(saved) + 'px';
+        }
+      } catch (_) {}
+
+      resizer.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        resizer.setPointerCapture(event.pointerId);
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+
+        const startY = event.clientY;
+        const startHeight = composer.getBoundingClientRect().height;
+        let lastHeight = startHeight;
+
+        function onMove(moveEvent) {
+          // Тянем вверх → курсор выше старта → высота растёт.
+          const delta = startY - moveEvent.clientY;
+          lastHeight = clamp(startHeight + delta);
+          composer.style.height = lastHeight + 'px';
+        }
+
+        function onUp() {
+          resizer.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          resizer.removeEventListener('pointermove', onMove);
+          resizer.removeEventListener('pointerup', onUp);
+          resizer.removeEventListener('pointercancel', onUp);
+          try {
+            localStorage.setItem(STORAGE_KEY, String(Math.round(lastHeight)));
+          } catch (_) {}
+        }
+
+        resizer.addEventListener('pointermove', onMove);
+        resizer.addEventListener('pointerup', onUp);
+        resizer.addEventListener('pointercancel', onUp);
+      });
+
+      // При изменении размеров окна — не даём composer вылезти за
+      // пересчитанный максимум.
+      window.addEventListener('resize', () => {
+        const currentHeight = composer.getBoundingClientRect().height;
+        const max = maxHeight();
+        if (currentHeight > max) {
+          composer.style.height = max + 'px';
+        }
+      });
+    })();
+
+    // ---------- Язык проверки правописания ----------
+    //
+    // Значение select'а подставляется в атрибут lang textarea.
+    // Браузер сам подчёркивает опечатки (spellcheck="true" в HTML).
+    // Значение сохраняется в localStorage.
+    (function initSpellcheckLanguage() {
+      const select = document.getElementById('spellcheck-lang');
+      const textarea = document.querySelector(
+        '.composer textarea[name="content"]'
+      );
+      if (!select || !textarea) return;
+
+      const STORAGE_KEY = 'mini-llm-ui.spellcheck.lang';
+
+      function applyLanguage(value) {
+        if (value === 'auto') {
+          textarea.removeAttribute('lang');
+        } else {
+          textarea.setAttribute('lang', value);
+        }
+        try {
+          localStorage.setItem(STORAGE_KEY, value);
+        } catch (_) {}
+      }
+
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved && ['ru', 'en', 'auto'].includes(saved)) {
+          select.value = saved;
+          applyLanguage(saved);
+        }
+      } catch (_) {}
+
+      select.addEventListener('change', () => {
+        applyLanguage(select.value);
       });
     })();
   </script>

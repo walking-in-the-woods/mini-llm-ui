@@ -367,13 +367,20 @@ def view_message(chat_id: int, message_id: int) -> ResponseReturnValue:
 
 @chat_blueprint.route('/chat/<int:chat_id>/message/<int:message_id>/edit')
 def edit_message(chat_id: int, message_id: int) -> ResponseReturnValue:
-    """Возвращает фрагмент сообщения в режиме редактирования."""
+    """Возвращает фрагмент сообщения в режиме редактирования.
+
+    Редактировать можно только user-сообщения. Ответ модели —
+    артефакт генерации, его нельзя перезаписывать. Даже если UI
+    скрыл кнопку, прямой запрос по URL получает 403.
+    """
     app_config = _app_config()
     connection = get_request_connection(app_config)
 
     message = get_message(connection, message_id)
     if message is None or message['chat_id'] != chat_id:
         abort(404)
+    if message['role'] != 'user':
+        abort(403)
     return render_template('partials/message_edit.html', msg=message)
 
 
@@ -382,13 +389,18 @@ def edit_message(chat_id: int, message_id: int) -> ResponseReturnValue:
     methods=['POST'],
 )
 def save_message(chat_id: int, message_id: int) -> ResponseReturnValue:
-    """Сохраняет отредактированное сообщение и возвращает режим чтения."""
+    """Сохраняет отредактированное сообщение и возвращает режим чтения.
+
+    Та же защита, что и в edit_message: только user-сообщения.
+    """
     app_config = _app_config()
     connection = get_request_connection(app_config)
 
     message = get_message(connection, message_id)
     if message is None or message['chat_id'] != chat_id:
         abort(404)
+    if message['role'] != 'user':
+        abort(403)
 
     new_content = (request.form.get('content') or '').strip()
     update_message(

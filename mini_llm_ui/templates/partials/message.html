@@ -11,10 +11,12 @@
   <div class="markdown-body">{{ msg['html_content']|safe }}</div>
 
   <div class="message-actions">
-    <button type="button" class="icon-btn" title="Редактировать"
-            hx-get="{{ url_for('chat.edit_message', chat_id=msg['chat_id'], message_id=msg['id']) }}"
-            hx-target="#message-{{ msg['id'] }}"
-            hx-swap="outerHTML">✏️</button>
+    {% if msg['role'] == 'user' %}
+      <button type="button" class="icon-btn" title="Редактировать"
+              hx-get="{{ url_for('chat.edit_message', chat_id=msg['chat_id'], message_id=msg['id']) }}"
+              hx-target="#message-{{ msg['id'] }}"
+              hx-swap="outerHTML">✏️</button>
+    {% endif %}
     <a class="icon-btn" title="Скачать .md"
        href="{{ url_for('export.export_message', chat_id=msg['chat_id'], message_id=msg['id']) }}">📥</a>
   </div>

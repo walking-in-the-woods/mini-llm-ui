@@ -312,11 +312,27 @@ button:hover:not(:disabled) { filter: brightness(.95); }
 .edit-actions { display: flex; gap: .5rem; }
 
 /* --------- Composer --------- */
+.composer-resizer {
+  height: 5px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: var(--border);
+  transition: background .15s;
+}
+.composer-resizer:hover,
+.composer-resizer.dragging {
+  background: var(--accent);
+}
+
 .composer {
-  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
   padding: .75rem 1.25rem 1rem;
   background: #fafafa;
   flex-shrink: 0;
+  min-height: 140px;
+  max-height: 70vh;
+  overflow: hidden;
 }
 .composer.busy { opacity: .75; }
 
@@ -353,7 +369,8 @@ button:hover:not(:disabled) { filter: brightness(.95); }
 
 .composer textarea {
   width: 100%;
-  resize: vertical;
+  flex: 1;
+  min-height: 3em;
   font-family: inherit;
   font-size: .95rem;
   padding: .5rem .75rem;
@@ -361,6 +378,8 @@ button:hover:not(:disabled) { filter: brightness(.95); }
   border-radius: 8px;
   margin-bottom: .5rem;
   line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
 }
 .composer textarea:disabled { background: #f3f4f6; }
 
@@ -368,7 +387,15 @@ button:hover:not(:disabled) { filter: brightness(.95); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: .5rem;
+  flex-shrink: 0;
 }
+.composer-actions-left {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
 .file-upload {
   cursor: pointer;
   font-size: .85rem;
@@ -385,6 +412,18 @@ button:hover:not(:disabled) { filter: brightness(.95); }
   opacity: 0;
   pointer-events: none;
 }
+
+.spellcheck-lang {
+  font: inherit;
+  font-size: .8rem;
+  padding: .25rem .45rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+}
+.spellcheck-lang:hover { background: #f1f5f9; }
 
 /* --------- Welcome --------- */
 .welcome {

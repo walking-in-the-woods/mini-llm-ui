@@ -108,3 +108,33 @@ def test_stop_is_idempotent_after_completion(client: FlaskClient) -> None:
     stop_response = client.post(f'/chat/{chat_id}/message/{message_id}/stop')
     # Стрим уже done — роут отдаёт message.html с 200.
     assert stop_response.status_code == 200
+
+
+def test_edit_assistant_message_is_forbidden(client: FlaskClient) -> None:
+    """Ответ модели редактировать нельзя — ни через GET, ни через POST.
+
+    UI скрывает кнопку ✏️ у assistant-сообщений, но защита должна
+    быть и на сервере: прямой запрос по URL возвращает 403.
+    """
+    chat_id = create_chat(client)
+    client.post(f'/chat/{chat_id}/send', data={'content': 'hi'})
+    time.sleep(0.3)
+
+    page = client.get(f'/chat/{chat_id}')
+    ids = re.findall(rb'id="message-(\d+)"', page.data)
+    # Должно быть два сообщения: user (первое) и assistant (второе).
+    assert len(ids) >= 2
+    assistant_message_id = int(ids[1])
+
+    edit_response = client.get(f'/chat/{chat_id}/message/{assistant_message_id}/edit')
+    assert edit_response.status_code == 403
+
+    save_response = client.post(
+        f'/chat/{chat_id}/message/{assistant_message_id}/save',
+        data={'content': 'forged'},
+    )
+    assert save_response.status_code == 403
+
+    # Контент не изменился.
+    page_after = client.get(f'/chat/{chat_id}')
+    assert b'forged' not in page_after.data

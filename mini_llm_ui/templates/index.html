@@ -66,6 +66,9 @@
           {% endfor %}
         </div>
 
+        <div class="composer-resizer" id="composer-resizer"
+             title="Потяните, чтобы изменить высоту поля ввода"></div>
+
         <form class="composer"
               hx-post="{{ url_for('chat.send_message', chat_id=chat_id) }}"
               hx-target="#messages"
@@ -82,19 +85,30 @@
 
           <textarea name="content"
                     rows="3"
+                    spellcheck="true"
+                    lang="ru"
                     placeholder="Сообщение… (Ctrl+Enter — отправить)"></textarea>
 
           <div class="composer-actions">
-            <label class="file-upload">
-              <span>📎 Прикрепить .md/.txt</span>
-              <input type="file" name="file" accept=".md,.txt"
-                     hx-post="{{ url_for('file.upload', chat_id=chat_id) }}"
-                     hx-target="#attachments-bar"
-                     hx-swap="beforeend"
-                     hx-encoding="multipart/form-data"
-                     hx-trigger="change"
-                     hx-on::after-request="this.value=''; if(event.detail.xhr&&event.detail.xhr.status>=200&&event.detail.xhr.status<400){const e=document.getElementById('upload-error'); if(e) e.innerHTML='';}">
-            </label>
+            <div class="composer-actions-left">
+              <label class="file-upload">
+                <span>📎 Прикрепить .md/.txt</span>
+                <input type="file" name="file" accept=".md,.txt"
+                       hx-post="{{ url_for('file.upload', chat_id=chat_id) }}"
+                       hx-target="#attachments-bar"
+                       hx-swap="beforeend"
+                       hx-encoding="multipart/form-data"
+                       hx-trigger="change"
+                       hx-on::after-request="this.value=''; if(event.detail.xhr&&event.detail.xhr.status>=200&&event.detail.xhr.status<400){const e=document.getElementById('upload-error'); if(e) e.innerHTML='';}">
+              </label>
+              <select id="spellcheck-lang"
+                      class="spellcheck-lang"
+                      title="Язык проверки правописания">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+                <option value="auto">Авто</option>
+              </select>
+            </div>
             <button type="submit">Отправить</button>
           </div>
         </form>
