@@ -30,6 +30,7 @@ dependencies = [
     "Flask>=3.0,<4",
     "mistune>=3.0,<4",
     "ollama>=0.3,<1",
+    "exceptiongroup>=1.0.2; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
