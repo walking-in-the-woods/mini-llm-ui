@@ -15,11 +15,11 @@
 
 <!-- Опишите, как убедиться, что изменение работает. -->
 
-- [ ] `ruff check mini_llm_ui tests` — чисто
-- [ ] `ruff format --check mini_llm_ui tests` — чисто
-- [ ] `mypy --no-incremental mini_llm_ui tests` — чисто
-- [ ] `pytest -q` — все тесты проходят
-- [ ] Ручной smoke: запуск `python app.py`, создание чата, отправка сообщения
+- [ ] `uv run ruff check mini_llm_ui tests` — чисто
+- [ ] `uv run ruff format --check mini_llm_ui tests` — чисто
+- [ ] `uv run mypy --no-incremental mini_llm_ui tests` — чисто
+- [ ] `uv run pytest -q` — все тесты проходят
+- [ ] Ручной smoke: запуск `uv run python app.py`, создание чата, отправка сообщения
 - [ ] Ручная проверка затронутой области (опишите ниже)
 
 ## Затронутая область

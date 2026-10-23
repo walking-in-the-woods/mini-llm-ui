@@ -1,7 +1,7 @@
 version: 2
 updates:
-  # Python-зависимости из pyproject.toml
-  - package-ecosystem: pip
+  # Python-зависимости (uv)
+  - package-ecosystem: uv
     directory: /
     schedule:
       interval: weekly
@@ -17,7 +17,6 @@ updates:
       prefix: 'deps'
       include: scope
     groups:
-      # Flask + сопутствующие — одним PR
       flask-stack:
         patterns:
           - 'Flask*'
@@ -27,7 +26,6 @@ updates:
           - 'click*'
           - 'blinker*'
           - 'MarkupSafe*'
-      # Test/dev-tools — одним PR
       dev-tools:
         patterns:
           - 'pytest*'
@@ -36,7 +34,7 @@ updates:
           - 'ruff*'
           - 'typing*'
 
-  # GitHub Actions в workflows
+  # GitHub Actions
   - package-ecosystem: github-actions
     directory: /
     schedule:
