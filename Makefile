@@ -34,7 +34,7 @@ install-dev: $(VENV)
 	$(PIP) install -e . --no-deps
 
 lock:
-	$(VENV)/bin/pip-compile --generate-hashes --extra dev \
+	$(VENV)/bin/pip-compile --generate-hashes --allow-unsafe --extra dev \
 	    --output-file requirements.lock pyproject.toml
 
 assets:
