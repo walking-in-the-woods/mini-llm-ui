@@ -39,7 +39,7 @@ dev = [
     "pytest-cov>=7,<8",
     "mypy>=1.10,<3",
     "ruff>=0.6,<1",
-    "pip-tools>=7.4,<8",
+    # pip-tools удалён, так как uv полностью заменяет его
 ]
 
 [project.scripts]
